@@ -1,0 +1,31 @@
+# Data & Log Outputs
+goodie_bag.jsonl
+*.jsonl
+seen_events.json
+
+# DuckDB Databases
+findings.duckdb
+findings.duckdb.wal
+findings.snapshot.duckdb
+*.duckdb
+*.duckdb.wal
+
+# Generated Output Reports
+FINDINGS_REPORT.md
+FINDINGS_SUMMARY.md
+FINDINGS.md
+docs/FINDINGS_REPORT.md
+docs/FINDINGS_SUMMARY.md
+docs/FINDINGS.md
+*.report.md
+
+# Environment & Secrets
+.env
+.env.*
+
+# System & Build Artifacts
+__pycache__/
+*.pyc
+.DS_Store
+node_modules/
+ui/react-app/node_modules/

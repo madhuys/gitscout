@@ -1,0 +1,2 @@
+#!/usr/bin/env bash
+exec ./bin/build_ui.sh "$@"

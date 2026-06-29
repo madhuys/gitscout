@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GitScout Findings</title>
+  <style>
+    :root {
+      --bg: #0f1419;
+      --panel: #1a2332;
+      --border: #2d3a4f;
+      --text: #e7ecf3;
+      --muted: #8b9cb3;
+      --accent: #3b82f6;
+      --accent-soft: #1e3a5f;
+      --danger: #f87171;
+      --high: #fbbf24;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Inter, system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+    header {
+      padding: 1.25rem 1.5rem;
+      border-bottom: 1px solid var(--border);
+      background: linear-gradient(180deg, #152033, var(--bg));
+    }
+    h1 { margin: 0 0 0.25rem; font-size: 1.35rem; }
+    .sub { color: var(--muted); font-size: 0.9rem; }
+    main { padding: 1.25rem 1.5rem 2rem; }
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 0.75rem;
+      margin-bottom: 1rem;
+    }
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 0.9rem 1rem;
+    }
+    .card .label { color: var(--muted); font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.04em; }
+    .card .value { font-size: 1.5rem; font-weight: 700; margin-top: 0.2rem; }
+    .filters {
+      display: grid;
+      grid-template-columns: 2fr 1fr 1fr auto auto;
+      gap: 0.6rem;
+      margin-bottom: 0.75rem;
+    }
+    input, select, button {
+      background: var(--panel);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 0.55rem 0.7rem;
+      font-size: 0.9rem;
+    }
+    button {
+      background: var(--accent-soft);
+      border-color: var(--accent);
+      cursor: pointer;
+      font-weight: 600;
+    }
+    button:hover { filter: brightness(1.1); }
+    label.chk {
+      display: flex;
+      align-items: center;
+      gap: 0.45rem;
+      color: var(--muted);
+      font-size: 0.85rem;
+      white-space: nowrap;
+    }
+    .table-wrap {
+      overflow: auto;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: var(--panel);
+    }
+    table { width: 100%; border-collapse: collapse; font-size: 0.84rem; }
+    th, td {
+      padding: 0.65rem 0.75rem;
+      border-bottom: 1px solid var(--border);
+      text-align: left;
+      vertical-align: top;
+    }
+    th {
+      position: sticky;
+      top: 0;
+      background: #121b29;
+      color: var(--muted);
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      cursor: pointer;
+      user-select: none;
+    }
+    tr:hover td { background: rgba(59, 130, 246, 0.06); }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.8rem; }
+    .secret {
+      max-width: 280px;
+      word-break: break-all;
+      color: #fda4af;
+    }
+    .badge {
+      display: inline-block;
+      padding: 0.15rem 0.45rem;
+      border-radius: 999px;
+      background: #243044;
+      font-size: 0.72rem;
+      white-space: nowrap;
+    }
+    .badge.high { background: #3f2e14; color: var(--high); }
+    .pager {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 0.75rem;
+      color: var(--muted);
+      font-size: 0.85rem;
+    }
+    a { color: #93c5fd; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    .error {
+      background: #3f1d1d;
+      border: 1px solid #7f1d1d;
+      color: #fecaca;
+      padding: 0.75rem 1rem;
+      border-radius: 8px;
+      margin-bottom: 1rem;
+    }
+    @media (max-width: 900px) {
+      .filters { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>GitScout Findings</h1>
+    <div class="sub">Query and explore secrets detected from GitHub public events</div>
+  </header>
+  <main>
+    <div id="error" class="error" style="display:none"></div>
+    <div class="cards" id="cards"></div>
+    <div class="filters">
+      <input id="search" type="search" placeholder="Search secret, file, repo, commit...">
+      <select id="typeFilter"><option value="">All types</option></select>
+      <input id="repoFilter" type="text" placeholder="Filter repo">
+      <label class="chk"><input id="highOnly" type="checkbox"> High-signal only</label>
+      <button id="refreshBtn">Refresh</button>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th data-sort="detected_at">When</th>
+            <th data-sort="secret_type">Type</th>
+            <th data-sort="repo">Repo</th>
+            <th data-sort="filename">File</th>
+            <th>Secret</th>
+            <th>Commit</th>
+          </tr>
+        </thead>
+        <tbody id="rows"></tbody>
+      </table>
+    </div>
+    <div class="pager">
+      <span id="meta"></span>
+      <span>
+        <button id="prevBtn">Prev</button>
+        <button id="nextBtn">Next</button>
+      </span>
+    </div>
+  </main>
+  <script>
+    const HIGH_SIGNAL = new Set([
+      'Anthropic API Key','OpenAI API Key','OpenAI Project API Key','OpenAI Live API Key',
+      'OpenRouter API Key','Together AI API Key','Groq API Key','Hugging Face API Key',
+      'Google API Key','AWS Access Key ID','AWS Secret Access Key','Private Key','SSH Key',
+      'PostgreSQL Connection String','MySQL Connection String','MongoDB Connection String',
+      'LLM Provider ENV Key','API Key','Auth Key','Secret Key','Generic Token',
+      'SMTP Credentials','ENV Variable Credential','wp-config.php Credentials'
+    ]);
+
+    const state = { offset: 0, limit: 50, sort: 'detected_at', order: 'desc' };
+
+    function showError(msg) {
+      const el = document.getElementById('error');
+      el.textContent = msg;
+      el.style.display = msg ? 'block' : 'none';
+    }
+
+    function truncate(text, n = 80) {
+      if (!text) return '';
+      return text.length > n ? text.slice(0, n - 1) + '…' : text;
+    }
+
+    async function loadSummary() {
+      const res = await fetch('/api/summary');
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to load summary');
+      const poll = data.last_poll || {};
+      document.getElementById('cards').innerHTML = `
+        <div class="card"><div class="label">Total</div><div class="value">${data.total}</div></div>
+        <div class="card"><div class="label">High-signal</div><div class="value">${data.high_signal}</div></div>
+        <div class="card"><div class="label">Types</div><div class="value">${data.by_type.length}</div></div>
+        <div class="card"><div class="label">Last poll secrets</div><div class="value">${poll.secrets ?? 0}</div></div>
+      `;
+    }
+
+    async function loadTypes() {
+      const res = await fetch('/api/types');
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to load types');
+      const select = document.getElementById('typeFilter');
+      const current = select.value;
+      select.innerHTML = '<option value="">All types</option>';
+      for (const type of data.types) {
+        const opt = document.createElement('option');
+        opt.value = type;
+        opt.textContent = type;
+        select.appendChild(opt);
+      }
+      select.value = current;
+    }
+
+    async function loadFindings() {
+      const params = new URLSearchParams({
+        q: document.getElementById('search').value.trim(),
+        type: document.getElementById('typeFilter').value,
+        repo: document.getElementById('repoFilter').value.trim(),
+        high_signal: document.getElementById('highOnly').checked ? '1' : '0',
+        limit: String(state.limit),
+        offset: String(state.offset),
+        sort: state.sort,
+        order: state.order,
+      });
+      const res = await fetch('/api/findings?' + params.toString());
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to load findings');
+
+      const tbody = document.getElementById('rows');
+      tbody.innerHTML = '';
+      for (const row of data.items) {
+        const tr = document.createElement('tr');
+        const high = HIGH_SIGNAL.has(row.secret_type) ? ' high' : '';
+        tr.innerHTML = `
+          <td class="mono">${row.detected_at.replace('T', ' ').slice(0, 19)}</td>
+          <td><span class="badge${high}">${row.secret_type}</span></td>
+          <td class="mono">${row.repo || '-'}</td>
+          <td class="mono">${row.filename}</td>
+          <td class="secret mono" title="${row.secret.replaceAll('"', '&quot;')}">${truncate(row.secret)}</td>
+          <td class="mono"><a href="${row.commit_url}" target="_blank" rel="noopener">${row.commit_sha.slice(0, 7)}</a></td>
+        `;
+        tbody.appendChild(tr);
+      }
+
+      const start = data.total ? data.offset + 1 : 0;
+      const end = Math.min(data.offset + data.limit, data.total);
+      document.getElementById('meta').textContent = `Showing ${start}-${end} of ${data.total}`;
+      document.getElementById('prevBtn').disabled = state.offset <= 0;
+      document.getElementById('nextBtn').disabled = end >= data.total;
+    }
+
+    async function refresh() {
+      try {
+        showError('');
+        await Promise.all([loadSummary(), loadTypes(), loadFindings()]);
+      } catch (err) {
+        showError(err.message);
+      }
+    }
+
+    document.getElementById('refreshBtn').addEventListener('click', () => { state.offset = 0; refresh(); });
+    document.getElementById('search').addEventListener('input', () => { state.offset = 0; loadFindings().catch(e => showError(e.message)); });
+    document.getElementById('typeFilter').addEventListener('change', () => { state.offset = 0; loadFindings().catch(e => showError(e.message)); });
+    document.getElementById('repoFilter').addEventListener('input', () => { state.offset = 0; loadFindings().catch(e => showError(e.message)); });
+    document.getElementById('highOnly').addEventListener('change', () => { state.offset = 0; loadFindings().catch(e => showError(e.message)); });
+    document.getElementById('prevBtn').addEventListener('click', () => { state.offset = Math.max(0, state.offset - state.limit); loadFindings().catch(e => showError(e.message)); });
+    document.getElementById('nextBtn').addEventListener('click', () => { state.offset += state.limit; loadFindings().catch(e => showError(e.message)); });
+
+    document.querySelectorAll('th[data-sort]').forEach(th => {
+      th.addEventListener('click', () => {
+        const col = th.dataset.sort;
+        if (state.sort === col) {
+          state.order = state.order === 'asc' ? 'desc' : 'asc';
+        } else {
+          state.sort = col;
+          state.order = 'desc';
+        }
+        state.offset = 0;
+        loadFindings().catch(e => showError(e.message));
+      });
+    });
+
+    refresh();
+    setInterval(() => refresh(), 30000);
+  </script>
+</body>
+</html>
